@@ -1,0 +1,33 @@
+GUI
+-> leap status (connected, focused, disconnected etc.)
+-> "S" presesed = controll mode on
+-> load configuration, save configuration
+-> canvas tab (add gesture etc.)
+-> colors, personalization
+-> user manual (keywords etc.)
+
+BACK
+-> alternate control system
+   -> 1) the one that im working on now (dist_0_1 for click etc.)
+   -> 2) other one most "real", most "attractive" "spectacular" (for example):
+     -> selecting text doing a pinch with my fingers
+	 -> mouse move with the center of the palm ?
+	 -> swipe
+   -> 3) face recognition... ?? if time
+
+-> gesture actions
+-> mouse control with different fingers or hand points
+-> grab objects, improve things related like text selection etc.
+-> really improve scrolling system (-scroll)
+-> interact with applications
+-> hand size, mouse vel, mouse acc etc. left or right hand...
+-> little stupid things (keyboard, equalizer, visualizer etc.)
+
+GENERAL
+-> modularity
+-> MVC
+-> globals
+-> data structures
+-> controlled import sentences
+-> setup.py
+-> try Electron or any alternative web GUIs
