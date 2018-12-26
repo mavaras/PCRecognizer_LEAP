@@ -23,7 +23,6 @@ from kivy.uix.label import Label
 from kivy.uix.boxlayout import BoxLayout
 from kivy.lang import Builder
 #allmyapp = Builder.load_file("gui.kv")
-
 from Tkinter import *
 import ttk"""
 
