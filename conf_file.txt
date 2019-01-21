@@ -1,0 +1,33 @@
+CONFIG START
+
+name: Mario Varas
+hand size: 20
+basic mode: deep or plane
+
+CONTROLS
+move: some gesture
+click: some gesture
+grab: some gesture
+left key: some gesture
+scroll: some gesture
+zoom: some gesture
+
+close w: some gesture
+minimize w: some gesture
+maximize w: some gesture
+
+next opened w: some gesture
+prev opened w: some gesture
+
+start: some gesture
+desktop: some gesture
+
+calculator: some gesture
+task admin: some gesture
+text editor: some gesture
+music player: some gesture
+terminal: some gesture
+
+-
+-
+CONFIG END

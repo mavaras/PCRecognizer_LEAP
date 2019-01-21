@@ -1,0 +1,2 @@
+file = open("conf_file.txt", "r") 
+print file.readline(): 

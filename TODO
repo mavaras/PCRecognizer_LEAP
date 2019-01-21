@@ -1,3 +1,11 @@
+PROBLEMS:
+-> Window switch:
+	-> sometimes u'"" isnt in list...
+	-> that sleep(.5)
+	-> Start as first element in list (Windows only?)
+	-> velocity
+	-> include moving into Alt-Tab menu
+
 GUI
 -> leap status (connected, focused, disconnected etc.)
 -> "S" presesed = controll mode on
