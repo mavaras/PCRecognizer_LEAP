@@ -28,7 +28,7 @@ if version_info >= (2, 6, 0):
     LeapPython = swig_import_helper()
     del swig_import_helper
 else:
-    import _LeapPython as LeapPython
+    import LeapPython
 del version_info
 try:
     _swig_property = property

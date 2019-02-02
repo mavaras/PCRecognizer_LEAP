@@ -11,6 +11,8 @@ from collections import deque
 import Leap
 import win32api, win32con, win32gui
 import cv2
+from pynput.keyboard import Key, Controller
+import linecache2 as linecache
 from constants import *
 """
 from kivy.config import Config
@@ -32,13 +34,13 @@ import ttk"""
 from PyQt4.QtGui import *
 from PyQt4.QtCore import *
 from gui import *
-
+sign = lambda a: (a>0) - (a<0)
 
 # GLOBALS
 INF = 999999
 exit = False
-cv_frame = np.zeros((H/2, W/3, 3), np.uint8)  # XY
-
+cv_frame_XY = np.zeros((H/2, W/3, 3), np.uint8)
+cv_frame_XZ = np.zeros((H/2, W/3, 3), np.uint8)
 
 # calculates the 3d distance between two given points
 def distance_3d(x, y, z,
@@ -51,6 +53,28 @@ def distance(p1, p2):
 	dy = p2.y - p1.y
 	return math.sqrt(dx*dx + dy*dy)
 
+# CLASS CONTAINING CONTROL POSSIBLE ACTIONS
+class Actions():
+	def show_desktop():
+		pass
+	def open_fexplorer():
+		pass
+	def minimizew():
+		pass
+	def maximizew():
+		pass
+	def closew():
+		pass
+	def open_app():
+		pass
+	def copy():
+		pass
+	def paste():
+		pass
+	def cut():
+		pass
+	
+
 # CLASS CONTAINING CONFIGURATION DATA
 class Conf():
 	file_name = ""
@@ -60,30 +84,59 @@ class Conf():
 	def __init__(self):
 		self.basic = self.Basic()
 		self.extra = self.Extra()
-	
+
+	# this loads conf configuration file into system
+	def load_conf(self, conf):
+		# conf info
+		self.file_name = conf.readline()
+		self.file_path = conf.readline()
+		self.file_date = conf.readline()
+
+		# basic conf
+		self.basic.mm = linecache.getline(str(conf.name), 6)
+		self.basic.lclick = linecache.getline(str(conf.name), 7)
+		self.basic.rclick = linecache.getline(str(conf.name), 8)
+		self.basic.vscroll = linecache.getline(str(conf.name), 9)
+		self.basic.hscroll = linecache.getline(str(conf.name), 10)
+		self.basic.grabb = linecache.getline(str(conf.name), 11)
+		self.basic.changew = linecache.getline(str(conf.name), 12)
+		self.basic.closew = linecache.getline(str(conf.name), 13)
+		self.basic.minimizew = linecache.getline(str(conf.name), 14)
+
+		# extra conf
+		"""self.basic.mm = linecache.getline(str(conf.name), 6)
+		self.basic.lclick = linecache.getline(str(conf.name), 7)
+		self.basic.rclick = linecache.getline(str(conf.name), 8)"""
+		
+		print("Content of configuration file "+str(conf.name)+":")
+		for line in conf:
+			print(line),
+
+	# classes for both configuration types
 	class Basic():
 		def __init__(self):
 			self.mm = "default"
 			self.lclick = "default"
 			self.rclick = "default"
-			self.scroll = "default"
+			self.hscroll = "default"
+			self.vscroll = "default"
 			self.grabb = "default"
-			self.ch_window = "default"
-			self.cl_window = "default"
-			self.mm_window = "default"
+			self.changew = "default"
+			self.closew = "default"
+			self.minimizew = "default"
 
 		def get_conf(self):
 			aux = ("Basic Conf:\n"
 				  +str(self.mm)+"\n"
 				  +str(self.lclick)+"\n"
 				  +str(self.rclick)+"\n"
-				  +str(self.scroll)+"\n"
+				  +str(self.vscroll)+"\n"
+				  +str(self.hscroll)+"\n"
 				  +str(self.grabb)+"\n"
-				  +str(self.ch_window)+"\n"
-				  +str(self.cl_window)+"\n"
-				  +str(self.mm_window)+"\n"
+				  +str(self.changew)+"\n"
+				  +str(self.closew)+"\n"
+				  +str(self.minimizew)+"\n"
 			)
-
 			return aux			
 			
 	class Extra():
@@ -109,7 +162,6 @@ class Conf():
 				  +str(self.open_custom_3)+"\n"
 				  +str(self.open_custom_4)+"\n"
 			)
-
 			return aux
 
 
@@ -140,6 +192,7 @@ class leap_listener(Leap.Listener):
 			self.vel = vel
 			self.active = active
 			self.left_clicked = False
+			self.right_clicked = False
 			self.left_pressed = False
 			self.switch_mode = False
 
@@ -153,16 +206,17 @@ class leap_listener(Leap.Listener):
 		self.c = 0
 		self.tail_points = []
 		for c in range(0, 5):
-			aux = deque([], 18)
+			aux = deque([], 18, 0)
 			self.tail_points.append(aux)
 		
 	def on_init(self, controller):
-		global cv_frame
+		global cv_frame_XY, cv_frame_XZ
 		
 		self.frame = controller.frame()
 		self.mouse = self.Mouse(0, 0, 1, 1, 1, 5, False)
 		self.capture_frame = False
-		self.scrolling = False
+		self.vscrolling = False
+		self.hscrolling = False
 		self.plane_mode = False
 		self.deep_mode = False
 
@@ -223,21 +277,27 @@ class leap_listener(Leap.Listener):
 		frame = self.frame
 
 		# opencv canvas
-		cv_frame_loc = np.zeros((H/2, W/3, 3), np.uint8)  # XY
+		cv_frame_loc_XY = np.zeros((H/2, W/3, 3), np.uint8)  # XY frame
+		cv_frame_loc_XZ = np.zeros((H/2, W/3, 3), np.uint8)  # XZ frame
 
 		if len(frame.hands) == 2:
 			# two hands if frame
-			cv2.putText(cv_frame_loc, "Two hands in frame",
+			cv2.putText(cv_frame_loc_XY, "Two hands in frame",
 					   (190, H/2 - 50), cv2.FONT_HERSHEY_SIMPLEX,
 						0.8, (255,255,255), 1, cv2.LINE_AA)
-			cv2.circle(cv_frame_loc, (H/4 + 50, W/6 - 50), 100, [255, 0, 0], 1)
+			cv2.circle(cv_frame_loc_XY, (H/4 + 50, W/6 - 50), 100, [255, 0, 0], 1)
+			cv2.putText(cv_frame_loc_XZ, "Two hands in frame",
+					   (190, H/2 - 50), cv2.FONT_HERSHEY_SIMPLEX,
+						0.8, (255,255,255), 1, cv2.LINE_AA)
+			cv2.circle(cv_frame_loc_XZ, (H/4 + 50, W/6 - 50), 100, [255, 0, 0], 1)
 			
 		for hand in frame.hands:
 			if hand.is_right:
 				# angle between X and Y (Z rotations)
 				roll = abs(hand.palm_normal.roll * Leap.RAD_TO_DEG)
 				yaw = hand.direction.yaw * Leap.RAD_TO_DEG
-				#print(yaw)
+
+				# SWIPE windows
 				if roll > 50:  # we are into switch mode
 					self.mouse.switch_mode = True
 					direction = int(yaw/abs(yaw))
@@ -270,7 +330,10 @@ class leap_listener(Leap.Listener):
 					self.mouse.switch_mode = False
 					self.mouse.switching = False
 				
-				cv2.putText(cv_frame_loc, "X to Y representation (vertical plane)",
+				cv2.putText(cv_frame_loc_XY, "X to Y representation (vertical plane)",
+						   (50, H/2 - 50), cv2.FONT_HERSHEY_SIMPLEX,
+							0.8, (255,255,255), 1, cv2.LINE_AA)
+				cv2.putText(cv_frame_loc_XZ, "X to Z representation (horizontal plane)",
 						   (50, H/2 - 50), cv2.FONT_HERSHEY_SIMPLEX,
 							0.8, (255,255,255), 1, cv2.LINE_AA)
 				
@@ -281,22 +344,37 @@ class leap_listener(Leap.Listener):
 				
 				# one hand into frame
 				if self.mouse.active == True:
-					if self.scrolling:
+					if self.vscrolling:
 						# scrolling
 						# angle between Z and Y (X rotations)
 						pitch = hand.direction.pitch * Leap.RAD_TO_DEG
 						if pitch < -10:
-							print("scroll down")
+							print("vscroll down")
 							cx, cy = win32api.GetCursorPos()
 							vel = -int(40-((90-abs(pitch))/3))
 							win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, cx, cy, vel, 0)
 
 						elif pitch > 38:
-							print("scroll up")
+							print("vscroll up")
 							cx, cy = win32api.GetCursorPos()
 							vel = int(30-((90-pitch)/3))
 							win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, cx, cy, vel, 0)
 
+						# horizontal scroll ??
+						# angle between Z and X (Y rotations)
+						roll = hand.direction.roll * Leap.RAD_TO_DEG
+						keyboard = Controller()
+						if roll < -50:
+							"""print("hscroll down")
+							keyboard.press(Key.ctrl)
+							keyboard.press("s")"""
+							
+						elif roll > 50:
+							"""print("hscroll up")
+							cx, cy = win32api.GetCursorPos()
+							vel = int(30-((90-pitch)/3))
+							win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, cx, cy, vel, 0)"""
+							
 					# INTERACTION modes
 					if self.deep_mode:
 						finger1 = hand.fingers[1]
@@ -313,17 +391,15 @@ class leap_listener(Leap.Listener):
 						self.mouse.x, self.mouse.y = int(abs(x)), int(abs(y))"""
 						
 					elif self.plane_mode:
-						f1 = hand.fingers[0].tip_position
-						f2 = hand.fingers[1].tip_position
-						f3 = hand.fingers[2].tip_position
-						dist_0_1 = distance(Point(f1.x,f1.z,-1), Point(f2.x,f2.z,-1))   # this works better on XZ plane
-						#dist_1_2 = distance(Point(f3.x,f3.z,-1), Point(f2.x,f2.z,-1))
-						dist_1_2 = distance_3d(f3.x,f3.y,f3.z, f2.x,f2.y,f2.z)
-						#print(">"+str(dist_0_1))
+						f1 = hand.fingers[0]
+						f2 = hand.fingers[1]
+						f3 = hand.fingers[2]
+						dist_0_1 = distance(Point(f1.tip_position.x,f1.tip_position.z,-1),
+											Point(f2.tip_position.x,f2.tip_position.z,-1))   # this works better on XZ plane
+						dist_1_2 = distance_3d(f3.tip_position.x,f3.tip_position.y,f3.tip_position.z,
+											   f2.tip_position.x,f2.tip_position.y,f2.tip_position.z)
 						# for keep performance when hand pitch (X rotations) >>
 						pitch = hand.direction.pitch * Leap.RAD_TO_DEG
-						#print(str(pitch)+" "+str(abs(pitch)//35))
-						#print("_"+str(9.5 - abs(pitch)//35))
 						if dist_0_1 < 80 - 15*abs(pitch)//35:
 							print("!")
 							if not self.mouse.left_clicked and not self.mouse.left_pressed:
@@ -354,6 +430,18 @@ class leap_listener(Leap.Listener):
 								win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, cx, cy, 0, 0)
 								self.mouse.left_pressed = False
 
+						if f3.tip_velocity.y < -90 and abs(f2.tip_velocity.y) < 30 and not self.mouse.right_clicked:
+							print("rclick")
+							self.mouse.right_clicked = True
+							#print(str(f3.tip_velocity.y)+" _ "+str(f2.tip_velocity.y))
+							cx, cy = win32api.GetCursorPos()
+							win32api.mouse_event(win32con.MOUSEEVENTF_RIGHTDOWN, cx, cy, 0, 0)
+							time.sleep(.2)
+							win32api.mouse_event(win32con.MOUSEEVENTF_RIGHTUP, cx, cy, 0, 0)
+						else:
+							if self.mouse.right_clicked:
+								self.mouse.right_clicked = False
+
 				for finger in hand.fingers:
 					self.fingers_vel[finger.type] = max(abs(finger.tip_velocity.x), abs(finger.tip_velocity.y), abs(finger.tip_velocity.z))
 					fx, fy, fz = finger.tip_position.x, finger.tip_position.y, finger.tip_position.z
@@ -363,15 +451,21 @@ class leap_listener(Leap.Listener):
 						self.fingers_pos[finger.type] = (sx, sy, fz)
 
 					# drawing things
-					cv2.circle(cv_frame_loc, (int(fx) + 250, int(H/2 - abs(fy))), 11, [255, 255, 255], 1)
+					cv2.circle(cv_frame_loc_XY, (int(fx) + 250, int(H/2 - abs(fy))), 11, [255, 255, 255], 1)
 					if finger.type != 0:
-						cv2.line(cv_frame_loc, (int(fx) + 250, int(H/2 - abs(fy))), (int(hand.fingers[finger.type-1].tip_position.x) + 250,
-																					 int(H/2 - abs(hand.fingers[finger.type-1].tip_position.y))),
-																					(255, 255, 255), 1)
+						cv2.line(cv_frame_loc_XY,
+								 (int(fx) + 250, int(H/2 - abs(fy))),
+								 (int(hand.fingers[finger.type-1].tip_position.x) + 250, int(H/2 - abs(hand.fingers[finger.type-1].tip_position.y))),
+								 (255, 255, 255), 1)
+						cv2.line(cv_frame_loc_XZ,
+								 (int(fx) + 250, int(sign(fz)*fz) + 220),
+								 (int(hand.fingers[finger.type-1].tip_position.x) + 250, int(220 + abs(hand.fingers[finger.type-1].tip_position.z))),
+								 (255, 255, 255), 1)
 
-					self.tail_points[finger.type].append((int(fx) + 250, int(H/2 - abs(fy))))
+					self.tail_points[finger.type].append((int(fx) + 250, int(H/2 - abs(fy)), 220 + sign(fz)*int(abs(fz))))
 					for point in self.tail_points[finger.type]:
-						cv2.circle(cv_frame_loc, point, 6, [205, 205, 205], 1)
+						cv2.circle(cv_frame_loc_XY, (point[0], point[1]), 6, [205, 205, 205], 1)
+						cv2.circle(cv_frame_loc_XZ, (point[0], point[2]), 6, [205, 205, 205], 1)
 
 					if len(self.tail_points) == 10:
 						self.tail_points[finger.type].popleft()
@@ -414,9 +508,10 @@ class leap_listener(Leap.Listener):
 
 					self.on_frame_c += 1
 
-		global cv_frame
-		cv_frame = cv_frame_loc
-		#cv2.imshow(cv2_window_name, cv_frame)
+		global cv_frame_XY, cv_frame_XZ
+		cv_frame_XY = cv_frame_loc_XY
+		cv_frame_XZ = cv_frame_loc_XZ
+		#cv2.imshow(cv2_window_name, cv_frame_XY)
 		key = cv2.waitKey(5) & 0xFF
 		if key == ord("q"):
 			exit_app()
@@ -876,7 +971,7 @@ class Widget_canvas(QWidget):
 # CV FRAME CLASS (Configuration Tab)		
 class Cv_Frame:
 	def __init__(self):
-		global cv_frame
+		global cv_frame_XY, cv_frame_XZ
 
 		# show_frame each second
 		self.timer = QtCore.QTimer(main_window)
@@ -885,16 +980,24 @@ class Cv_Frame:
 
 	# load frame (image) into label
 	def show_frame(self):
-		frame = cv_frame
-		frame = cv2.resize(frame, None, fx=.7, fy=.7, interpolation=cv2.INTER_CUBIC)
+		frame_XY = cv_frame_XY
+		frame_XZ = cv_frame_XZ
+		frame_XY = cv2.resize(frame_XY, None, fx=.7, fy=.7, interpolation=cv2.INTER_CUBIC)
+		frame_XZ = cv2.resize(frame_XZ, None, fx=.7, fy=.7, interpolation=cv2.INTER_CUBIC)
 		
-		height, width, size = frame.shape
-		step = frame.size / height
-		qformat = QImage.Format_RGBA8888 if size == 4 else QImage.Format_RGB888
-		frame = QImage(frame, width, height, step, qformat)
+		height1, width1, size1 = frame_XY.shape
+		height2, width2, size2 = frame_XZ.shape
+		step1 = frame_XY.size / height2
+		step2 = frame_XZ.size / height2
+		qformat1 = QImage.Format_RGBA8888 if size1 == 4 else QImage.Format_RGB888
+		qformat2 = QImage.Format_RGBA8888 if size2 == 4 else QImage.Format_RGB888
+		frame_XY = QImage(frame_XY, width1, height1, step1, qformat1)
+		frame_XZ = QImage(frame_XZ, width2, height2, step2, qformat2)
 		
-		main_window.label_img.setPixmap(QtGui.QPixmap.fromImage(frame))
-		main_window.label_img.setContentsMargins(45, 5, 0, 0)
+		main_window.label_frame_XY.setPixmap(QtGui.QPixmap.fromImage(frame_XY))
+		main_window.label_frame_XY.setContentsMargins(0, 0, 0, 0)
+		main_window.label_frame_XZ.setPixmap(QtGui.QPixmap.fromImage(frame_XZ))
+		main_window.label_frame_XZ.setContentsMargins(0, 0, 0, 0)
 		
 # MAIN WINDOW CLASS
 class MainWindow(QtGui.QMainWindow, Ui_MainWindow):
@@ -938,14 +1041,27 @@ class MainWindow(QtGui.QMainWindow, Ui_MainWindow):
 		self.button_load_text.clicked.connect(self.load_text_B)
 		self.text_edit.setReadOnly(True)
 		self.text_edit_2.setReadOnly(True)
-		self.combo_box.currentIndexChanged["int"].connect(self.combo_box_selection_changed)
+		self.combo_box.currentIndexChanged["int"].connect(self.combo_box_nfingers_selection_changed)
 
 		# label_leap_status default value
 		self.change_leap_status(False)
 		
 		# Tab2 cv_frame representation
 		self.cvF = Cv_Frame()
+		
+		# Tab2 action-gesture changes
+		connect_func = lambda: self.combo_box_actiongesture_changed(self.combo_box_mm)
+		self.combo_box_mm.currentIndexChanged["int"].connect(connect_func)
+		
+		# Tab3 gesture gif representation
+		self.combo_box_gestures.currentIndexChanged["int"].connect(self.combo_box_gestures_selection_changed)
+		self.set_gesture_gif("gifs/click_plane.gif")
+		self.label_gesture_gif.setLayout(QtGui.QHBoxLayout())
 
+		# menubar
+		self.menubar_file_loadconf.triggered.connect(self.load_conf)
+		self.menubar_file_saveconf.triggered.connect(self.save_conf)
+		
 	# this two functions are about loading text from text_edit and converting it to points array
 	def to_point(self, text):
 		parts = text.split(",")
@@ -971,17 +1087,27 @@ class MainWindow(QtGui.QMainWindow, Ui_MainWindow):
 		print("save_conf()")
 		fname = QFileDialog.getSaveFileName(self, "Save Configuration", "c:\\", "(*.txt)")
 		if fname:
-			conf.file_name = str(QFileInfo(fname).fileName())
-			conf.file_path = str(QFileInfo(fname).path())
-			conf.file_date = time.ctime(os.path.getctime(fname))
+			f = open(fname, "w+")
+
+			configuration.file_name = str(QFileInfo(fname).fileName())
+			configuration.file_path = str(QFileInfo(fname).path())
+			configuration.file_date = time.ctime(os.path.getctime(fname))
 			
-			f = open(fname, "w")
-			f.write(conf.file_name+"\n"++conf.file_path+"\n"+conf.file_date+"\n\n")
-			f.write(conf.basic.get_conf())
+			f.write(configuration.file_name+"\n"+configuration.file_path+"\n"+configuration.file_date+"\n\n")
+			f.write(configuration.basic.get_conf())
 			f.write("\n")
-			f.write(conf.extra.get_conf())
+			f.write(configuration.extra.get_conf())
 			f.close()
-		
+
+	# load configuration to app
+	def load_conf(self):
+		print("load_conf()")
+		fname = QFileDialog.getOpenFileName(self, "Save Configuration", "c:\\", "(*.txt)")
+		if fname:
+			f = open(fname, "r")
+			configuration.load_conf(f)
+			f.close()
+			
 	# Leap status label
 	def change_leap_status(self, conn):
 		if conn:
@@ -1004,6 +1130,14 @@ class MainWindow(QtGui.QMainWindow, Ui_MainWindow):
 		elif event.key() == QtCore.Qt.Key_S:
 			listener.mouse.active = True if not listener.mouse.active else False
 
+		elif event.key() == QtCore.Qt.Key_Y:
+			print("Y pressed")
+			keyboard = Controller()
+			keyboard.press(Key.cmd)
+			keyboard.press("d")
+			keyboard.release("d")
+			keyboard.release(Key.cmd)
+			
 		elif event.key() == QtCore.Qt.Key_F:                    # start stroke recognition
 			global points
 			if self.n_of_fingers == 1:
@@ -1046,7 +1180,7 @@ class MainWindow(QtGui.QMainWindow, Ui_MainWindow):
 			self.label_score.setText("")
 
 		elif event.key() == QtCore.Qt.Key_G and sys.argv[1] != "-thread":
-			global points
+			#global points
 			if self.n_of_fingers == 1:                          # recordin only 1 finger(indice)
 				print("1 finger recording mode")
 				if listener.capture_frame:                      # 2nd "G" press
@@ -1083,7 +1217,7 @@ class MainWindow(QtGui.QMainWindow, Ui_MainWindow):
 					# this is like a thread with no wait
 					QtCore.QTimer.singleShot(1000, lambda: self.updateLabel(self.label_count))
 			
-	def combo_box_selection_changed(self):
+	def combo_box_nfingers_selection_changed(self):
 		print("selection changed"+str(self.combo_box.currentIndex()))
 		if self.combo_box.currentIndex() == 0:
 			self.n_of_fingers = 1
@@ -1092,10 +1226,57 @@ class MainWindow(QtGui.QMainWindow, Ui_MainWindow):
 			
 		self.setFocus()                                         # getting focus back on main_window
 
+	# handling all Configuration tab combo_box changes
+	def combo_box_actiongesture_changed(self, combo_box_name):
+		print("action-gesture changed"+str(combo_box_name.currentIndex()))
+		if combo_box_name == "combo_box_lclick":
+			if combo_box_name.currentIndex() == 0:
+				configuration.lclick = "click_planem"
+			elif combo_box_name.currentIndex() == 1:
+				configuration.lclick = "click_deepm"
+
+		elif combo_box_name == "combo_box_rclick":
+			pass
+		elif combo_box_name == "combo_box_mm":
+			pass
+		elif combo_box_name == "combo_box_minimizew":
+			pass
+		elif combo_box_name == "combo_box_closew":
+			pass
+		elif combo_box_name == "combo_box_changew":
+			pass
+		elif combo_box_name == "combo_box_vscroll":
+			pass
+		elif combo_box_name == "combo_box_hscroll":
+			pass
+		elif combo_box_name == "combo_box_grabb":
+			pass
+
+		self.setFocus()
+		
+	def combo_box_gestures_selection_changed(self):
+		print("selection changed"+str(self.combo_box_gestures.currentIndex()))
+		if self.combo_box_gestures.currentIndex() == 0:
+			self.set_gesture_gif("gifs/click_plane.gif")
+		elif self.combo_box_gestures.currentIndex() == 1:
+			self.set_gesture_gif("gifs/grabb_plane.gif")
+		elif self.combo_box_gestures.currentIndex() == 2:
+			self.set_gesture_gif("gifs/scroll.gif")
+
+		self.setFocus()
+
+	# Leap status label CONNECTED or DISCONNECTED
 	def set_label_leap_status(self, img):
 		img,_,_ = load_image(img)
 		self.label_leap_status.setPixmap(QPixmap.fromImage(img))
 
+	# Gestures tab gif of each predefined gesture
+	def set_gesture_gif(self, gif):
+		giff = QtGui.QMovie(gif)
+		self.label_gesture_gif.setMovie(giff)
+		giff.start()
+
+	# countdown label
 	def updateLabel(self, label):
 		# change the following line to retrieve the new voltage from the device
 		t = int(label.text()) - 1
@@ -1308,7 +1489,7 @@ if __name__ == "__main__":
 	main_window.show()
 
 	# Configuration
-	conf = Conf()
+	configuration = Conf()
 	
 	# shell arguments handling
 	for arg in sys.argv:
@@ -1318,7 +1499,8 @@ if __name__ == "__main__":
 		elif arg == "-allf":                                    # ALL fingers capture mode by default
 			main_window.combo_box.setCurrentIndex(1)
 		elif arg == "-scroll":                                  # scroll enabled
-			listener.scrolling = True
+			listener.vscrolling = True
+			listener.hscrolling = True
 		elif arg == "-deepm":                                   # INTERACTION MODE: deep mode by default
 			listener.deep_mode = True
 		elif arg == "-planem":                                  # INTERACTION MODE: plane mode by default
