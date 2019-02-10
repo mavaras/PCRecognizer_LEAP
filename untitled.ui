@@ -166,7 +166,7 @@
      <widget class="QPushButton" name="button_restore_def">
       <property name="geometry">
        <rect>
-        <x>770</x>
+        <x>817</x>
         <y>440</y>
         <width>111</width>
         <height>23</height>
@@ -179,7 +179,7 @@
      <widget class="QPushButton" name="button_save_conf">
       <property name="geometry">
        <rect>
-        <x>620</x>
+        <x>670</x>
         <y>440</y>
         <width>111</width>
         <height>23</height>
@@ -192,14 +192,14 @@
      <widget class="QTabWidget" name="tab_widget_conf">
       <property name="geometry">
        <rect>
-        <x>500</x>
+        <x>490</x>
         <y>10</y>
-        <width>421</width>
+        <width>441</width>
         <height>411</height>
        </rect>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
@@ -562,6 +562,58 @@
          </property>
         </item>
        </widget>
+       <widget class="QPushButton" name="button_help_click">
+        <property name="geometry">
+         <rect>
+          <x>403</x>
+          <y>60</y>
+          <width>21</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="button_help_rclick">
+        <property name="geometry">
+         <rect>
+          <x>403</x>
+          <y>100</y>
+          <width>21</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="button_help_grabb">
+        <property name="geometry">
+         <rect>
+          <x>403</x>
+          <y>340</y>
+          <width>21</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="button_help_vscroll">
+        <property name="geometry">
+         <rect>
+          <x>403</x>
+          <y>260</y>
+          <width>21</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
       </widget>
       <widget class="QWidget" name="tab_6">
        <attribute name="title">
@@ -888,7 +940,7 @@
        </rect>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>2</number>
       </property>
       <widget class="QWidget" name="tab_4">
        <attribute name="title">
@@ -926,25 +978,30 @@
         </property>
        </widget>
       </widget>
+      <widget class="QWidget" name="tab_7">
+       <attribute name="title">
+        <string>Gesture</string>
+       </attribute>
+       <widget class="QLabel" name="label_gesture_gif">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>411</width>
+          <height>391</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>TextLabel</string>
+        </property>
+       </widget>
+      </widget>
      </widget>
     </widget>
     <widget class="QWidget" name="tab_gestures">
      <attribute name="title">
       <string>Gestures</string>
      </attribute>
-     <widget class="QLabel" name="label_gesture_gif">
-      <property name="geometry">
-       <rect>
-        <x>6</x>
-        <y>2</y>
-        <width>451</width>
-        <height>411</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>TextLabel</string>
-      </property>
-     </widget>
      <widget class="QComboBox" name="combo_box_gestures">
       <property name="geometry">
        <rect>
@@ -1107,6 +1164,19 @@
      <enum>Qt::Vertical</enum>
     </property>
    </widget>
+   <widget class="QCheckBox" name="checkBox">
+    <property name="geometry">
+     <rect>
+      <x>820</x>
+      <y>520</y>
+      <width>111</width>
+      <height>17</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Launch on startup</string>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
@@ -1124,7 +1194,15 @@
     <addaction name="menubar_file_loadconf"/>
     <addaction name="menubar_file_saveconf"/>
    </widget>
+   <widget class="QMenu" name="menuHelp">
+    <property name="title">
+     <string>Help</string>
+    </property>
+    <addaction name="actionTutorial"/>
+    <addaction name="actionHelp"/>
+   </widget>
    <addaction name="menubar_file"/>
+   <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="menubar_file_loadconf">
@@ -1140,6 +1218,16 @@
   <action name="menubar_file_saveconf">
    <property name="text">
     <string>Save Configuration</string>
+   </property>
+  </action>
+  <action name="actionTutorial">
+   <property name="text">
+    <string>Tutorial</string>
+   </property>
+  </action>
+  <action name="actionHelp">
+   <property name="text">
+    <string>Help</string>
    </property>
   </action>
  </widget>
